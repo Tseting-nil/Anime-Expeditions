@@ -989,7 +989,7 @@ end
 -- 使用 CollapsingHeader 包裹自動刪除設定表格，放置於 Tab_summon
 local AutoSellHeader = Tab_summon:CollapsingHeader({
 	Title = L("sep_auto_sell"),
-	Collapsed = true
+	Collapsed = false,
 })
 local AutoSellTable = AutoSellHeader:Table({
 	RowBackground = true,

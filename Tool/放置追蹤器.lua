@@ -126,18 +126,26 @@ local SCRIPT_SAVE_PATH = "Tsetingnil_script/AnimeExpedition/Script"
 -- === 語言設定 ===
 local currentLang = "en"
 do
-	local API_VAR_PATH = "Tsetingnil_script/AnimeExpedition/API_VAR.json"
+	local KEYSYSTEM_PATH = "Tsetingnil_script/keysystem.json"
 	pcall(function()
-		if isfile and isfile(API_VAR_PATH) and readfile then
-			local raw = readfile(API_VAR_PATH)
+		if isfile and isfile(KEYSYSTEM_PATH) and readfile then
+			local raw = readfile(KEYSYSTEM_PATH)
 			if raw and raw ~= "" then
 				local ok, data = pcall(HttpService.JSONDecode, HttpService, raw)
-				if ok and type(data) == "table" and data.language then
-					local lang = tostring(data.language):upper()
-					if lang == "CHINESE" then
+				if ok and type(data) == "table" and data.script_language then
+					local lang = tostring(data.script_language):lower()
+					if lang:find("chinese") or lang:find("zh") then
 						currentLang = "zh"
-					elseif lang == "ENGLISH" then
+					elseif lang:find("english") or lang:find("en") then
 						currentLang = "en"
+					end
+				else
+					local lang = raw:match('"script_language"%s*:%s*"([^"]+)"')
+					if lang then
+						lang = lang:lower()
+						if lang:find("chinese") or lang:find("zh") then
+							currentLang = "zh"
+						end
 					end
 				end
 			end
