@@ -1943,7 +1943,7 @@ end
 local API_LOADER_LINE = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/Tseting-nil/Anime-Expeditions/refs/heads/main/%E5%AF%86%E9%91%B0%E7%B3%BB%E7%B5%B1.lua"))()'
 
 -- 生成腳本表頭要標的「這支追蹤器」的來源, 之後上線時換成實際 raw URL。
-local TRACKER_URL_LINE = 'loadstring("https://gist.githubusercontent.com/Tseting-nil/1da361611e41f6c29fc430505c2460d6/raw/9fd3914aa3987ed6ea4ef371ffe5bd66f0bcacf5/test.lua")()'
+local TRACKER_URL_LINE = 'https://raw.githubusercontent.com/Tseting-nil/Anime-Expeditions/refs/heads/main/Tool/%E6%94%BE%E7%BD%AE%E8%BF%BD%E8%B9%A4%E5%99%A8.lua")()'
 
 -- 取這個操作的消耗 (成本版閘門用)。★ UpgradeInfo 的索引是【目標等級】。
 local function gateCost(op)
