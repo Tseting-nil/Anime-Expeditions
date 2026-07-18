@@ -9,7 +9,7 @@
 
 local Scripttable, Mainfunction = ...
 
--- === i18n ===
+-- === i18n 國際化設定 ===
 local HttpService = game:GetService("HttpService")
 local currentLang = "zh"
 do
@@ -666,10 +666,19 @@ end
 -- ============================================================
 -- UI 定時更新循環 (1秒多次更新)
 -- ============================================================
+local lastLocalGameStart = nil
+
 local function updateUIList()
 	local Scripttable, Mainfunction = getAE()
-	if Scripttable and Scripttable.currentRunningIndex then
-		current_index = Scripttable.currentRunningIndex
+	if Scripttable then
+		local localGst = Scripttable.gameStartTime
+		if localGst and localGst ~= lastLocalGameStart then
+			lastLocalGameStart = localGst
+			resetStatuses()
+		end
+		if Scripttable.currentRunningIndex then
+			current_index = Scripttable.currentRunningIndex
+		end
 	end
 	local queue = Scripttable.queue or {}
 	if #uiRows ~= #queue then
@@ -923,6 +932,11 @@ workspace:GetAttributeChangedSignal("GameStartTime"):Connect(onGameStartTimeChan
 
 -- 初始化 UI 清單與同步
 initUIList()
+local Scripttable, Mainfunction = getAE()
+if Scripttable then
+	lastLocalGameStart = Scripttable.gameStartTime
+end
+
 if getElapsed() > 0 then
 	syncRunningQueue()
 else
