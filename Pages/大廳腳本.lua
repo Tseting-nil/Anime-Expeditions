@@ -23,22 +23,47 @@ end
 do
 	local ok, n = pcall(DisarmErrorTraps)
 	if not ok then
-		warn("[自動召喚] 拆除檢測器失敗, 中止 (繼續執行可能導致被延遲踢出)")
+		warn("[大廳腳本] 拆除檢測器失敗, 中止 (繼續執行可能導致被延遲踢出)")
 	end
-	print("[自動召喚] 已拆除 " .. n .. " 個檢測器")
+	print("[大廳腳本] 已拆除 " .. n .. " 個檢測器")
 end
 
+if getgenv().LobbyScript and getgenv().LobbyScript._Shutdown then
+	pcall(getgenv().LobbyScript._Shutdown)
+end
 if getgenv().AutoSummon and getgenv().AutoSummon._Shutdown then
 	pcall(getgenv().AutoSummon._Shutdown)
 end
 
+-- 側邊通知模組
+if not getgenv().NotificationModule then
+	pcall(function()
+		loadstring(game:HttpGet("https://gist.githubusercontent.com/Tseting-nil/08653e6aa9fc12a9f097bfb10e6654e7/raw/00001d614d928fc5dafce59133a012dd78419afd/%25E5%2581%25B4%25E9%2582%258A%25E9%2580%259A%25E7%259F%25A5%25E6%25A8%25A1%25E7%25B5%2584.lua"))()
+	end)
+end
+local Msg = getgenv().NotificationModule or {
+	Success = function(_, txt) print("[Success]", txt) end,
+	Warning = function(_, txt) warn("[Warning]", txt) end,
+}
+
+local UserInputService = game:GetService("UserInputService")
+local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+
 local Lang = "zh" -- 預設為中文
 local i18n = {
 	zh = {
-		load_failed = "[自動召喚] 載入遊戲模組失敗: %s",
+		load_failed = "[大廳腳本] 載入遊戲模組失敗: %s",
 		regui_compile_failed = "ReGui 原始碼編譯失敗",
-		regui_load_failed = "[自動召喚] 載入 ReGui 失敗: %s",
-		window_title = "動漫遠征 - 自動召喚",
+		regui_load_failed = "[大廳腳本] 載入 ReGui 失敗: %s",
+		window_title = "動漫遠征 - 大廳腳本",
+		
+		-- Tabs
+		tab_summon = "自動召喚",
+		tab_pity = "保底進度",
+		tab_autosell = "自動刪除",
+		tab_localscript = "本地腳本",
+
+		-- 自動召喚
 		sep_settings = "設定",
 		label_banner = "卡池",
 		banner_standard = "標準 (Standard)",
@@ -73,6 +98,8 @@ local i18n = {
 		rb_auto_summon = "自動召喚",
 		btn_reset_stats = "重設統計",
 		log_stats_reset = "統計已重設",
+		
+		-- 保底與刪除
 		sep_pity = "保底進度",
 		label_no_pity = "此卡池無保底資料",
 		log_pity_slider = "%d / %d",
@@ -87,7 +114,7 @@ local i18n = {
 		log_summon_result_sold = " <font color='#ff6b6b'>(刪除)</font>",
 		log_summon_result_unresolved = "(無法解析)",
 		log_summon_result_summary = "<font color='#acabaf'>自動刪除 %d / %d 隻, 留下 %d 隻</font>",
-		warn_update_node_not_found = "[自動召喚] 找不到 _updateNode, 召喚結果不會顯示",
+		warn_update_node_not_found = "[大廳腳本] 找不到 _updateNode, 召喚結果不會顯示",
 		err_tier_not_allowed = "檔位 %dx 不被伺服器接受。目前可用: 1x / %dx  (%s)",
 		hint_enable_max_tier = "開啟「最大抽數」設定可解鎖 50x",
 		hint_disable_max_tier = "關閉「最大抽數」設定可用 10x",
@@ -100,13 +127,52 @@ local i18n = {
 		log_ready = "就緒。Standard 實付 %d (原價 %d)。",
 		log_ready_tiers = "<font color='#acabaf'>抽取只有 1x / 10x / 50x 三檔; 目前可用: 1x / %dx</font>",
 		log_ready_settings = "<font color='#acabaf'>快速抽取=%s  最大抽數=%s</font>",
-		print_loaded = "[自動召喚] 已載入 -- 外部 API: getgenv().AutoSummon",
+		print_loaded = "[大廳腳本] 已載入 -- 外部 API: getgenv().AutoSummon / getgenv().LobbyScript",
+
+		-- 本地腳本
+		localscript_path           = "路徑: ",
+		localscript_list           = "腳本列表",
+		localscript_refresh        = "重新整理",
+		localscript_run            = "執行",
+		localscript_no_scripts     = "目錄中無腳本",
+		localscript_done           = "執行完成",
+		localscript_error          = "執行錯誤",
+		localscript_refreshed      = "清單已重新整理",
+		localscript_delete         = "刪除",
+		localscript_confirm_title  = "確認刪除?",
+		localscript_confirm_title2 = "⚠ 此操作無法復原",
+		localscript_confirm_yes    = "確認",
+		localscript_confirm_no     = "取消",
+		localscript_delete_final   = "永久刪除",
+		localscript_deleted        = "已刪除",
+		localscript_delete_error   = "刪除失敗",
+		localscript_info           = "i",
+		localscript_info_no_block  = "（無資訊區塊）",
+		localscript_info_read_fail = "讀取失敗",
+		localscript_info_close     = "關閉",
+		localscript_info_copy      = "複製",
+		localscript_info_copied    = "已複製到剪貼簿",
+		localscript_save_running   = "儲存正在運行的腳本",
+		localscript_save           = "儲存",
+		localscript_save_name_title = "輸入儲存名稱",
+		localscript_save_name_ph    = "腳本名稱...",
+		localscript_save_success   = "已儲存",
+		localscript_save_error     = "儲存失敗",
+		localscript_save_no_running = "無正在運行的腳本",
 	},
 	en = {
-		load_failed = "[Auto Summon] Failed to load game modules: %s",
+		load_failed = "[Lobby Script] Failed to load game modules: %s",
 		regui_compile_failed = "ReGui source code compilation failed",
-		regui_load_failed = "[Auto Summon] Failed to load ReGui: %s",
-		window_title = "Anime Expedition - Auto Summon",
+		regui_load_failed = "[Lobby Script] Failed to load ReGui: %s",
+		window_title = "Anime Expedition - Lobby Script",
+		
+		-- Tabs
+		tab_summon = "Auto Summon",
+		tab_pity = "Pity Progress",
+		tab_autosell = "Auto Sell",
+		tab_localscript = "Local Script",
+
+		-- 自動召喚
 		sep_settings = "Settings",
 		label_banner = "Banner",
 		banner_standard = "Standard",
@@ -141,6 +207,8 @@ local i18n = {
 		rb_auto_summon = "Auto Summon",
 		btn_reset_stats = "Reset Stats",
 		log_stats_reset = "Statistics reset",
+		
+		-- 保底與刪除
 		sep_pity = "Pity Progress",
 		label_no_pity = "No pity data for this banner",
 		log_pity_slider = "%d / %d",
@@ -155,7 +223,7 @@ local i18n = {
 		log_summon_result_sold = " <font color='#ff6b6b'>(Sold)</font>",
 		log_summon_result_unresolved = "(Unresolved)",
 		log_summon_result_summary = "<font color='#acabaf'>Auto sold %d / %d units, keeping %d</font>",
-		warn_update_node_not_found = "[Auto Summon] _updateNode not found, summon results will not be displayed",
+		warn_update_node_not_found = "[Lobby Script] _updateNode not found, summon results will not be displayed",
 		err_tier_not_allowed = "Tier %dx is not accepted by the server. Available: 1x / %dx  (%s)",
 		hint_enable_max_tier = "Turn on 'Summon Max' to unlock 50x",
 		hint_disable_max_tier = "Turn off 'Summon Max' to use 10x",
@@ -168,7 +236,38 @@ local i18n = {
 		log_ready = "Ready. Standard actual cost %d (base %d).",
 		log_ready_tiers = "<font color='#acabaf'>Summons only support 1x / 10x / 50x. Currently available: 1x / %dx</font>",
 		log_ready_settings = "<font color='#acabaf'>Fast Summon=%s  Summon Max=%s</font>",
-		print_loaded = "[Auto Summon] Loaded -- External API: getgenv().AutoSummon",
+		print_loaded = "[Lobby Script] Loaded -- External API: getgenv().AutoSummon / getgenv().LobbyScript",
+
+		-- 本地腳本
+		localscript_path           = "Path: ",
+		localscript_list           = "Script List",
+		localscript_refresh        = "Refresh",
+		localscript_run            = "Run",
+		localscript_no_scripts     = "No scripts in directory",
+		localscript_done           = "Executed",
+		localscript_error          = "Error",
+		localscript_refreshed      = "List refreshed",
+		localscript_delete         = "Delete",
+		localscript_confirm_title  = "Confirm Delete?",
+		localscript_confirm_title2 = "⚠ This cannot be undone",
+		localscript_confirm_yes    = "Confirm",
+		localscript_confirm_no     = "Cancel",
+		localscript_delete_final   = "Delete Forever",
+		localscript_deleted        = "Deleted",
+		localscript_delete_error   = "Delete failed",
+		localscript_info           = "i",
+		localscript_info_no_block  = "(No info block)",
+		localscript_info_read_fail = "Read failed",
+		localscript_info_close     = "Close",
+		localscript_info_copy      = "Copy",
+		localscript_info_copied    = "Copied to clipboard",
+		localscript_save_running   = "Save Running Script",
+		localscript_save           = "Save",
+		localscript_save_name_title = "Enter Save Name",
+		localscript_save_name_ph    = "Script name...",
+		localscript_save_success   = "Saved",
+		localscript_save_error     = "Save failed",
+		localscript_save_no_running = "No running script",
 	}
 }
 
@@ -246,7 +345,7 @@ local loadOk, loadErr = pcall(function()
 end)
 
 if not loadOk then
-	warn("[自動召喚] 載入遊戲模組失敗: " .. tostring(loadErr))
+	warn("[大廳腳本] 載入遊戲模組失敗: " .. tostring(loadErr))
 	return
 end
 
@@ -274,7 +373,7 @@ local function SetSetting(name, value)
 	end)
 end
 
--- GetMaxTier / IsTierAllowed 定義在 GetBannerMeta / GetBalance 之後 (它們是 local, 這裡還看不到)
+-- GetMaxTier / IsTierAllowed 定義在 GetBannerMeta / GetBalance 之後
 local GetMaxTier, IsTierAllowed
 
 local SelectedBanner = "Standard"
@@ -285,7 +384,7 @@ local AutoLoop = false
 local TotalSummons = 0
 local TotalSpent = 0
 
--- Banner 選項 (顯示名稱 -> 內部 ID)
+-- Banner 選項
 local BannerOptions = {
 	L("banner_standard"),
 	L("banner_mini"),
@@ -297,7 +396,7 @@ local BannerIdOf = {
 	[L("banner_newplayer")] = "NewPlayerEvent",
 }
 
--- 目前的 banner 折扣 (session boost, 會隨活動變動)
+-- 目前的 banner 折扣 (session boost)
 local function GetBannerDiscount()
 	local ok, d = pcall(function()
 		local sd = peek(Dependencies.SessionData) or {}
@@ -307,8 +406,7 @@ local function GetBannerDiscount()
 	return (ok and d) or 0
 end
 
--- 從 live BannerData 讀 banner 資訊, 並照遊戲公式算出實付價
--- (Processors.Banner: Cost = Discount and round(base * (1 - discount)) or base)
+-- 算出實付價
 local function GetBannerMeta(bannerId)
 	local info
 	local ok = pcall(function()
@@ -341,7 +439,7 @@ local function GetBalance(currency)
 	return (ok and amt) or 0
 end
 
--- 遊戲的 u44: 一鍵最大抽的數量, 也就是伺服器認可的「大檔位」
+-- 伺服器認可的「大檔位」
 function GetMaxTier()
 	if not GetSetting("SummonMax") then
 		return 10
@@ -351,7 +449,7 @@ function GetMaxTier()
 	return math.clamp(n, 10, ABSOLUTE_MAX)
 end
 
--- 伺服器只收 1 或 GetMaxTier(), 中間值一律拒絕
+-- 伺服器只收 1 或 GetMaxTier()
 function IsTierAllowed(t)
 	return t == 1 or t == GetMaxTier()
 end
@@ -387,7 +485,6 @@ do
 	end
 	if ok and tr then
 		Translator = tr
-        -- Translate 需要一個 GuiObject 當 context
 		pcall(function()
 			TransProbe = Instance.new("TextLabel")
 			TransProbe.Name = "_AutoSummonTransProbe"
@@ -411,7 +508,6 @@ local function ResolveName(asset)
 		end
 	end)
 
-    -- 翻成在地語言 (遊戲 UI 顯示的就是這個)
 	if Lang == "zh" and Translator and TransProbe then
 		pcall(function()
 			local t = Translator:Translate(TransProbe, display)
@@ -459,20 +555,33 @@ local function ComboPick(items, arg)
 	return arg
 end
 
--- 前向宣告: 上面的設定切換會用到, 實作在下方「靜音結果彈窗」
 local SetPopupSilenced
 
-local Window = ReGui:Window({
+local Window = ReGui:TabsWindow({
 	Title = L("window_title"),
-	Size = UDim2.fromOffset(420, 490),
+	Size = UDim2.fromOffset(420, 520),
 	Theme = "DarkTheme",
+	NoScroll = true,
 })
 
-Window:Separator({
+local TabSummon = Window:CreateTab({ Name = L("tab_summon") })
+local TabLocalScript = Window:CreateTab({ Name = L("tab_localscript") })
+
+local Tab_summon = TabSummon:ScrollingCanvas({
+	Fill = true,
+	UiPadding = UDim.new(0, 4)
+})
+local Tab_localscript = TabLocalScript:ScrollingCanvas({
+	Fill = true,
+	UiPadding = UDim.new(0, 4)
+})
+
+-- ==================== [ Tab 1: 自動召喚 ] ====================
+Tab_summon:Separator({
 	Text = L("sep_settings")
 })
 
-Window:Combo({
+Tab_summon:Combo({
 	Label = L("label_banner"),
 	Selected = 1,
 	Items = BannerOptions,
@@ -482,13 +591,12 @@ Window:Combo({
 	end,
 })
 
--- 抽取只有 1x / 10x / 50x 三檔
 local TIER_ITEMS = {
 	"1x",
 	"10x",
 	"50x"
 }
-Window:Combo({
+Tab_summon:Combo({
 	Label = L("label_summon_tier"),
 	Selected = 2, -- 預設 10x
 	Items = TIER_ITEMS,
@@ -498,13 +606,11 @@ Window:Combo({
 	end,
 })
 
-Window:Separator({
+Tab_summon:Separator({
 	Text = L("sep_game_settings")
 })
 
--- 這兩個是遊戲本身的設定: Value 先讀遊戲現值, 使用者切換時走 CLIENT_CHANGE_SETTING 同步回伺服器。
--- UIReady 擋掉建立期的假觸發, 否則一載入就會把初始值回送 (等於亂改玩家設定)。
-Window:Checkbox({
+Tab_summon:Checkbox({
 	Label = L("cb_fast_summon"),
 	Value = GetSetting("FastSummon"),
 	Callback = function(_, v)
@@ -519,7 +625,7 @@ Window:Checkbox({
 	end,
 })
 
-Window:Checkbox({
+Tab_summon:Checkbox({
 	Label = L("cb_summon_max"),
 	Value = GetSetting("SummonMax"),
 	Callback = function(_, v)
@@ -527,7 +633,7 @@ Window:Checkbox({
 			return
 		end
 		if SetSetting("SummonMax", v) then
-			task.wait(0.5) -- 等伺服器回寫 PlayerData, 不然 GetMaxTier 讀到舊值
+			task.wait(0.5) -- 等伺服器回寫 PlayerData
 			Log(L("log_summon_max", tostring(v), GetMaxTier()))
 		else
 			Log(L("log_summon_max_failed"))
@@ -535,7 +641,7 @@ Window:Checkbox({
 	end,
 })
 
-Window:Checkbox({
+Tab_summon:Checkbox({
 	Label = L("cb_silence_popups"),
 	Value = false,
 	Callback = function(_, v)
@@ -547,7 +653,7 @@ Window:Checkbox({
 	end,
 })
 
-Window:DragFloat({
+Tab_summon:DragFloat({
 	Label = L("label_interval"),
 	Value = Interval,
 	Minimum = 1.0,
@@ -558,7 +664,7 @@ Window:DragFloat({
 	end,
 })
 
-Window:Checkbox({
+Tab_summon:Checkbox({
 	Label = L("cb_stop_when_broke"),
 	Value = StopWhenBroke,
 	Callback = function(_, v)
@@ -566,25 +672,25 @@ Window:Checkbox({
 	end,
 })
 
-Window:Separator({
+Tab_summon:Separator({
 	Text = L("sep_status")
 })
 
-local BalanceLabel = Window:Label({
+local BalanceLabel = Tab_summon:Label({
 	Text = L("label_balance_empty")
 })
-local CostLabel = Window:Label({
+local CostLabel = Tab_summon:Label({
 	Text = L("label_cost_empty")
 })
-local StatsLabel = Window:Label({
+local StatsLabel = Tab_summon:Label({
 	Text = L("label_stats_empty")
 })
 
-Window:Separator({
+Tab_summon:Separator({
 	Text = L("sep_actions")
 })
 
-local Console = Window:Console({
+local Console = Tab_summon:Console({
 	ReadOnly = true,
 	AutoScroll = true,
 	MaxLines = 60,
@@ -606,11 +712,10 @@ function Log(fmt, ...)
 		end
 	end)
 	if not ok then
-		print("[自動召喚] " .. line)
+		print("[大廳腳本] " .. line)
 	end
 end
 
--- 執行一次召喚, 回傳 是否成功, 訊息
 local function SummonOnce()
 	local amount = SummonAmount
 	if not IsTierAllowed(amount) then
@@ -630,7 +735,7 @@ local function SummonOnce()
 	end
 	task.spawn(function()
 		local before = balance
-		for _ = 1, 12 do -- 最多等 ~1.2s
+		for _ = 1, 12 do
 			task.wait(0.1)
 			local now = GetBalance(meta.Currency)
 			if now ~= before then
@@ -661,7 +766,7 @@ end
 
 local LoopBox
 local SuppressLoopCb = false
-local ActionRow = Window:Row({
+local ActionRow = Tab_summon:Row({
 	Expanded = true
 })
 
@@ -710,19 +815,13 @@ ActionRow:Button({
 })
 
 -- ==================== [ 保底進度 ] ====================
--- 每個卡池的保底組合不同 (實證):
---   Standard       Legendary 50 / Mythic 400 / Secret 10000
---   Mini           Legendary 50 / Mythic 400          (沒有 Secret)
---   NewPlayerEvent Legendary 20 / Mythic 50           (需求值也不同)
---   需求值: peek(Dependencies.BannerData)[banner].BannerInfo.Pity
---   目前值: peek(Dependencies.PlayerData).BannerData[banner].Pity
-Window:Separator({
+Tab_summon:Separator({
 	Text = L("sep_pity")
 })
 
-local PityCanvas = Window:Canvas()
+local PityCanvas = Tab_summon:Canvas()
 local PityBars = {}
-local PityKey = nil   -- 目前建好的 banner+需求 簽章, 變了才重建
+local PityKey = nil
 
 local function GetPity(bannerId)
 	local req, cur
@@ -742,7 +841,6 @@ end
 local function SyncPityBars(bannerId)
 	local req, cur = GetPity(bannerId)
 
-    -- 照需求值由小到大排 (與遊戲 Summon 選單的排序一致)
 	local order = {}
 	for k in pairs(req) do
 		table.insert(order, k)
@@ -796,7 +894,6 @@ local function SyncPityBars(bannerId)
 		end
 	end
 
-    -- 更新數值
 	for rarity, e in pairs(PityBars) do
 		if not e.IsLabel then
 			local curN = cur[rarity] or 0
@@ -809,17 +906,11 @@ local function SyncPityBars(bannerId)
 end
 
 -- ==================== [ 靜音結果彈窗 ] ====================
--- 「Obtained Rewards」那個要點一下才關的槽位介面, 是 PlayerScripts.MountPrompts 用**節點回呼**畫的:
---     Nodes.PROMPT_OBTAINED_REWARDS:Connect(promptObtainedRewards)
---     Nodes.PROMPT_OBTAINED_REWARD_SLOTS:Connect(function(rewards, unsorted, promptId) ... end)
---
---
--- 做法: Nodes[x].Signal:GetConnections() 拿到連線物件, 把它的 `_fn` 換成空函數。
 local PopupNodes = {
 	"PROMPT_OBTAINED_REWARD_SLOTS",
 	"PROMPT_OBTAINED_REWARDS"
 }
-local SilencedConns = {} -- { {conn = c, fn = 原本的} }
+local SilencedConns = {}
 
 function SetPopupSilenced(on)
 	if on then
@@ -851,9 +942,6 @@ function SetPopupSilenced(on)
 end
 
 -- ==================== [ 自動刪除設定 ] ====================
--- 協議  Nodes.CHANGE_AUTOSELL_SETTING:FireServer(banner, rarity, isShiny, value)
--- 讀取: PlayerData.Settings.AutoSell[banner][rarity]            <- 非閃亮
---       PlayerData.Settings.AutoSell[banner][rarity .. "Shiny"] <- 閃亮
 local AUTOSELL_EXCLUDE = {
 	Secret = true
 }
@@ -873,7 +961,6 @@ local function SetAutoSell(banner, rarity, isShiny, value)
 	end)
 end
 
--- 該卡池可自動賣的等級, 已排序
 local function GetBannerRarities(banner)
 	local list = {}
 	pcall(function()
@@ -899,7 +986,8 @@ local function GetBannerRarities(banner)
 	return list
 end
 
-local AutoSellHeader = Window:CollapsingHeader({
+-- 使用 CollapsingHeader 包裹自動刪除設定表格，放置於 Tab_summon
+local AutoSellHeader = Tab_summon:CollapsingHeader({
 	Title = L("sep_auto_sell"),
 	Collapsed = true
 })
@@ -907,13 +995,13 @@ local AutoSellTable = AutoSellHeader:Table({
 	RowBackground = true,
 	Border = true
 })
-local AutoSellKey = nil -- 目前建好的 banner+等級 簽章
+local AutoSellKey = nil
 
 local function SyncAutoSellTable(banner)
 	local rarities = GetBannerRarities(banner)
 	local key = tostring(banner) .. "|" .. table.concat(rarities, ",")
 	if key == AutoSellKey then
-		return -- 卡池沒變就不重建 (重建會把使用者的展開狀態弄掉)
+		return
 	end
 	AutoSellKey = key
 	pcall(function()
@@ -938,7 +1026,6 @@ local function SyncAutoSellTable(banner)
 			RichText = true,
 		})
 
-        -- 非閃亮 / 閃亮 兩欄
 		for _, isShiny in ipairs({
 			false,
 			true
@@ -950,7 +1037,6 @@ local function SyncAutoSellTable(banner)
 				Label = "",
 				Value = state[settingKey] == true,
 				Callback = function(_, v)
-                    -- ReGui 建立元件時會觸發一次 Callback, 擋掉免得一載入就回送設定
 					if not ready then
 						return
 					end
@@ -968,10 +1054,6 @@ local function SyncAutoSellTable(banner)
 end
 
 -- ==================== [ 召喚結果 ] ====================
---     _updateNode.OnClientEvent(nodeName, 1, rewards, bool, id)
---     rewards = { { Asset = "Sasuke", Data = { Level=1, Shiny=?, StatPotential={...} } }, ... }
---
--- UNIT_ADD_TO_PLAYER 不是召喚結果，是伺服器廣播。
 local RESULT_NODES = {
 	PROMPT_OBTAINED_REWARDS = true,
 	PROMPT_OBTAINED_REWARD_SLOTS = true,
@@ -1022,6 +1104,360 @@ do
 	end
 end
 
+-- ==================== [ Tab 4: 本地腳本 ] ====================
+local Localscript = {
+	path = "Tsetingnil_script/AnimeExpedition/Script",
+	ScriptListTable = nil,
+	Excluded = {"_Venus", "_Saturn", "_Mars"},
+}
+
+local BuildScriptList
+BuildScriptList = function()
+	Localscript.ScriptListTable:ClearRows()
+	local path = Localscript.path
+	local ok, files = pcall(listfiles, path)
+	local scripts = {}
+	if ok and files then
+		for _, filePath in ipairs(files) do
+			local name = filePath:match("([^/\\]+)$") or filePath
+			if name:match("%.lua$") or name:match("%.txt$") then
+				local excluded = false
+				for _, suffix in ipairs(Localscript.Excluded) do
+					if name:match(suffix .. "%.lua$") or name:match(suffix .. "%.txt$") then
+						excluded = true; break
+					end
+				end
+				if not excluded then
+					scripts[#scripts + 1] = { name = name, path = filePath }
+				end
+			end
+		end
+	end
+	if #scripts == 0 then
+		local EmptyRow = Localscript.ScriptListTable:NextRow()
+		EmptyRow:Column():Label({ Text = L("localscript_no_scripts") })
+		return
+	end
+	for _, script in ipairs(scripts) do
+		local Row = Localscript.ScriptListTable:NextRow()
+
+		local NameCol = Row:Column()
+		NameCol:Label({ Text = script.name })
+
+		local ActionsCol = Row:Column()
+		local actionsFrame = ActionsCol.RawObject
+		local actionsFlex = Instance.new("UIFlexItem", actionsFrame)
+		actionsFlex.FlexMode = Enum.UIFlexMode.None
+		-- 包含 執行, 資訊, 刪除
+		actionsFrame.Size = UDim2.new(0, 135, 1, 0)
+
+		local ActionRow = ActionsCol:Row({ Expanded = true })
+
+		-- 執行按鈕 (補齊原本 localscript_run 的規劃)
+		ActionRow:SmallButton({
+			Text = L("localscript_run"),
+			Callback = function()
+				local ok2, err = pcall(function()
+					local content = readfile(script.path)
+					local chunk, loadErr = loadstring(content)
+					if not chunk then error(loadErr) end
+					task.spawn(chunk)
+				end)
+				if ok2 then
+					Msg:Success(L("localscript_done") .. ": " .. script.name)
+				else
+					Msg:Warning(L("localscript_error") .. ": " .. tostring(err))
+				end
+			end,
+		})
+
+		ActionRow:SmallButton({
+			Text = L("localscript_info"),
+			Callback = function()
+				local content
+				local ok3, raw = pcall(readfile, script.path)
+				if ok3 and raw then
+					local map, diff, mode, timeStr
+					local towers = {}
+					local inTowers = false
+					for line in (raw .. "\n"):gmatch("([^\n]*)\n") do
+						line = line:gsub("\r", "")
+						local m, d, mo = line:match("Map:%s*(.-)%s*|%s*Difficulty:%s*(.-)%s*|%s*Mode:%s*(.-)%s*$")
+						if m then
+							map, diff, mode = m, d, mo
+						end
+						local t = line:match("Time:%s*(.-)%s*$")
+						if t and not timeStr then
+							timeStr = t:match("(.-)%s*%(") or t
+						end
+						if line:find("Towers used:") then
+							inTowers = true
+						elseif inTowers then
+							if line:find("]]") or line:match("^%s*$") then
+								inTowers = false
+							else
+								local tower = line:match("%-%s*(.-)%s*$")
+								if tower and tower ~= "" then
+									table.insert(towers, tower)
+								end
+							end
+						end
+					end
+					local out = {}
+					if map then
+						out[#out + 1] = "Map: " .. map
+					end
+					if diff then
+						out[#out + 1] = "Difficulty: " .. diff
+					end
+					if timeStr then
+						out[#out + 1] = "Time: " .. timeStr
+					end
+					if mode and mode ~= "" then
+						out[#out + 1] = "<font color='#FFB347'>Mode: " .. mode .. "</font>"
+					end
+					if #towers > 0 then
+						out[#out + 1] = "<font color='#5BC8F5'>Towers used:</font>"
+						for _, t in ipairs(towers) do
+							out[#out + 1] = "  - " .. t
+						end
+					end
+					content = #out > 0 and table.concat(out, "\n") or L("localscript_info_no_block")
+				else
+					content = L("localscript_info_read_fail")
+				end
+				local InfoModal = Window:PopupModal({ Title = script.name })
+				local BtnRow = InfoModal:Row({ Expanded = true })
+				BtnRow:Button({
+					Text     = L("localscript_info_close"),
+					Callback = function() InfoModal:ClosePopup() end,
+				})
+				BtnRow:Button({
+					Text     = L("localscript_info_copy"),
+					Callback = function()
+						if raw and pcall(setclipboard, raw) then
+							Msg:Success(L("localscript_info_copied"))
+						end
+					end,
+				})
+				InfoModal:Console({
+					Value    = content,
+					ReadOnly = true,
+					RichText = true,
+					Border   = true,
+					Size     = UDim2.new(1, 0, 0, isMobile and 110 or 150),
+				})
+			end,
+		})
+
+		ActionRow:SmallButton({
+			Text = L("localscript_delete"),
+			Callback = function(delBtn)
+				local Popup1 = Tab_localscript:PopupModal({
+					RelativeTo = delBtn,
+				})
+				Popup1:Separator({ Text = L("localscript_confirm_title") })
+				Popup1:Label({ Text = script.name, TextWrapped = true })
+				local Row1 = Popup1:Row({ Expanded = true })
+				Row1:Button({
+					Text = L("localscript_confirm_yes"),
+					Callback = function()
+						Popup1:ClosePopup()
+						local Popup2 = Tab_localscript:PopupModal({
+							RelativeTo = delBtn,
+						})
+						Popup2:Separator({ Text = L("localscript_confirm_title2") })
+						local Row2 = Popup2:Row({ Expanded = true })
+						Row2:Button({
+							Text = L("localscript_delete_final"),
+							Callback = function()
+								Popup2:ClosePopup()
+								local ok2, err = pcall(delfile, script.path)
+								if ok2 then
+									Msg:Success(L("localscript_deleted") .. ": " .. script.name)
+									BuildScriptList()
+								else
+									Msg:Warning(L("localscript_delete_error") .. ": " .. tostring(err))
+								end
+							end,
+						})
+						Row2:Button({
+							Text = L("localscript_confirm_no"),
+							Callback = function()
+								Popup2:ClosePopup()
+							end,
+						})
+					end,
+				})
+				Row1:Button({
+					Text = L("localscript_confirm_no"),
+					Callback = function()
+						Popup1:ClosePopup()
+					end,
+				})
+			end,
+		})
+	end
+end
+
+Tab_localscript:Label({
+	Text = L("localscript_path") .. Localscript.path,
+	TextSize = fontSize,
+})
+
+Tab_localscript:Separator({ Text = L("localscript_list") })
+
+local HeaderRow = Tab_localscript:Row()
+
+HeaderRow:Button({
+	Text = L("localscript_refresh"),
+	Callback = function()
+		BuildScriptList()
+		Msg:Success(L("localscript_refreshed"))
+	end,
+})
+
+HeaderRow:Button({
+	Text = L("localscript_save_running"),
+	Callback = function()
+		local userId = tostring(game.Players.LocalPlayer.UserId)
+		local mainPathBS = "Tsetingnil_script\\AnimeExpedition\\main_" .. userId .. ".lua"
+		local mainPathFW = "Tsetingnil_script/AnimeExpedition/main_" .. userId .. ".lua"
+		local useFW = isfile and isfile(mainPathFW) and not isfile(mainPathBS)
+		local mainPath = useFW and mainPathFW or mainPathBS
+		local ok3, raw = pcall(readfile, mainPath)
+		if not ok3 or not raw or raw == "" then
+			ok3, raw = pcall(readfile, useFW and mainPathBS or mainPathFW)
+		end
+		if not ok3 or not raw or raw == "" then
+			Msg:Warning(L("localscript_save_no_running"))
+			return
+		end
+		local content
+		local map, diff, mode, timeStr
+		local towers = {}
+		local inTowers = false
+		for line in (raw .. "\n"):gmatch("([^\n]*)\n") do
+			line = line:gsub("\r", "")
+			local m, d, mo = line:match("Map:%s*(.-)%s*|%s*Difficulty:%s*(.-)%s*|%s*Mode:%s*(.-)%s*$")
+			if m then
+				map, diff, mode = m, d, mo
+			end
+			local t = line:match("Time:%s*(.-)%s*$")
+			if t and not timeStr then
+				timeStr = t:match("(.-)%s*%(") or t
+			end
+			if line:find("Towers used:") then
+				inTowers = true
+			elseif inTowers then
+				if line:find("]]") or line:match("^%s*$") then
+					inTowers = false
+				else
+					local tower = line:match("%-%s*(.-)%s*$")
+					if tower and tower ~= "" then table.insert(towers, tower) end
+				end
+			end
+		end
+		local out = {}
+		if map then
+			out[#out + 1] = "Map: " .. map
+		end
+		if diff then
+			out[#out + 1] = "Difficulty: " .. diff
+		end
+		if timeStr then
+			out[#out + 1] = "Time: " .. timeStr
+		end
+		if mode and mode ~= "" then
+			out[#out + 1] = "<font color='#FFB347'>Mode: " .. mode .. "</font>"
+		end
+		if #towers > 0 then
+			out[#out + 1] = "<font color='#5BC8F5'>Towers used:</font>"
+			for _, t in ipairs(towers) do out[#out + 1] = "  - " .. t end
+		end
+		content = #out > 0 and table.concat(out, "\n") or L("localscript_info_no_block")
+		local scriptTitle = "main_" .. userId
+		local InfoModal = Window:PopupModal({ Title = scriptTitle })
+		local BtnRow = InfoModal:Row({ Expanded = true })
+		BtnRow:Button({
+			Text = L("localscript_save"),
+			Callback = function()
+				local inputName = ""
+				local NameModal = Window:PopupModal({ Title = L("localscript_save_name_title") })
+				NameModal:InputText({
+					Placeholder = L("localscript_save_name_ph"),
+					Value = "",
+					Callback = function(_, text)
+						inputName = text
+					end,
+				})
+				local NRow = NameModal:Row({ Expanded = true })
+				NRow:Button({
+					Text = L("localscript_confirm_yes"),
+					Callback = function()
+						local name = inputName:match("^%s*(.-)%s*$")
+						if name == "" then return end
+						local sep = useFW and "/" or "\\"
+						local savePath = "Tsetingnil_script" .. sep .. "AnimeExpedition" .. sep .. "Script" .. sep .. name .. ".lua"
+						local outerBlock = raw:match("%-%-%[%[(.-)%]%]") or ""
+						local wrappedContent = "--[[\n" .. outerBlock .. "\n]]\n\n" ..
+							"-- ========== FULL SCRIPT ==========\n" ..
+							"local fullScript = [=[\n" ..
+							raw ..
+							"\n]=]\n\n" ..
+							"-- ========== Start ==========\n" ..
+							"local AE = getgenv().AE\n" ..
+							"if not AE or not AE.ExecuteQueue then\n" ..
+							"\tloadstring(game:HttpGet(\"https://raw.githubusercontent.com/Tseting-nil/Anime-Expeditions/refs/heads/main/%E5%AF%86%E9%91%B0%E7%B3%BB%E7%B5%B1.lua\"))()\n" ..
+							"\tAE = getgenv().AE\n" ..
+							"end\n\n" ..
+							"AE.SaveLocalScript(fullScript)\n" ..
+							"loadstring(fullScript)()\n"
+						if not isfolder("Tsetingnil_script") then makefolder("Tsetingnil_script") end
+						if not (isfolder("Tsetingnil_script\\AnimeExpedition") or isfolder("Tsetingnil_script/AnimeExpedition")) then makefolder("Tsetingnil_script" .. sep .. "AnimeExpedition") end
+						if not (isfolder("Tsetingnil_script\\AnimeExpedition\\Script") or isfolder("Tsetingnil_script/AnimeExpedition/Script")) then makefolder("Tsetingnil_script" .. sep .. "AnimeExpedition" .. sep .. "Script") end
+						local ok4, err = pcall(writefile, savePath, wrappedContent)
+						if ok4 then
+							Msg:Success(L("localscript_save_success") .. ": " .. name)
+							NameModal:ClosePopup()
+							InfoModal:ClosePopup()
+							BuildScriptList()
+						else
+							Msg:Warning(L("localscript_save_error") .. ": " .. tostring(err))
+						end
+					end,
+				})
+				NRow:Button({
+					Text = L("localscript_confirm_no"),
+					Callback = function()
+						NameModal:ClosePopup()
+					end,
+				})
+			end,
+		})
+		BtnRow:Button({
+			Text = L("localscript_info_close"),
+			Callback = function() InfoModal:ClosePopup() end,
+		})
+		InfoModal:Console({
+			Value    = content,
+			ReadOnly = true,
+			RichText = true,
+			Border   = true,
+			Size     = UDim2.new(1, 0, 0, isMobile and 110 or 150),
+		})
+	end,
+})
+
+Localscript.ScriptListTable = Tab_localscript:Table({
+	RowBackground = true,
+	Border = true,
+})
+
+BuildScriptList()
+
+-- ========================================================================== --
+
 task.spawn(function()
 	while Running do
 		if AutoLoop then
@@ -1035,7 +1471,7 @@ task.spawn(function()
 	end
 end)
 
--- 狀態列即時更新
+-- 狀態更新與保底同步
 task.spawn(function()
 	while Running do
 		pcall(function()
@@ -1053,7 +1489,6 @@ task.spawn(function()
 	end
 end)
 
--- 收乾淨: 背景迴圈 / 事件連線 / 翻譯探針 / 視窗
 local Shutdown
 Shutdown = function(keepWindow)
 	Running = false
@@ -1082,25 +1517,25 @@ end
 
 Window:UpdateConfig({
 	CloseCallback = function()
-		Shutdown(true)   -- 視窗自己會關, 不用再 Close 一次
+		Shutdown(true)
 		return true
 	end,
 })
 
-getgenv().AutoSummon = {
+local API = {
 	SummonOnce = SummonOnce,
 	GetBannerMeta = GetBannerMeta,
 	GetBalance = GetBalance,
 	GetDiscount = GetBannerDiscount,
-	Tiers = TIERS, -- {1, 10, 50}
-	GetMaxTier = GetMaxTier, -- 目前伺服器認可的最大檔位
+	Tiers = TIERS,
+	GetMaxTier = GetMaxTier,
 	IsTierAllowed = IsTierAllowed,
-	GetSetting = GetSetting, -- ("SummonMax" / "FastSummon" / ...)
+	GetSetting = GetSetting,
 	SetSetting = SetSetting,
-	GetAutoSell = GetAutoSellState, -- (banner) -> { Rare=true, RareShiny=false, ... }
-	SetAutoSell = SetAutoSell, -- (banner, rarity, isShiny, value)
+	GetAutoSell = GetAutoSellState,
+	SetAutoSell = SetAutoSell,
 	GetBannerRarities = GetBannerRarities,
-	SetPopupSilenced = SetPopupSilenced, -- (bool) 靜音/還原「Obtained Rewards」彈窗
+	SetPopupSilenced = SetPopupSilenced,
 	SetBanner = function(id)
 		SelectedBanner = id
 	end,
@@ -1119,8 +1554,11 @@ getgenv().AutoSummon = {
 	Stop = function()
 		SetLoop(false)
 	end,
-	_Shutdown = Shutdown,   -- 重跑腳本時由新實例呼叫, 關掉這一份
+	_Shutdown = Shutdown,
 }
+
+getgenv().LobbyScript = API
+getgenv().AutoSummon = API
 
 do
 	local m = GetBannerMeta("Standard")

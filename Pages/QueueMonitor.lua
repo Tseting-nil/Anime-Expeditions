@@ -788,7 +788,18 @@ local function hookMainfunctions()
 	local Scripttable, Mainfunction = getAE()
 	local ExecuteQueue = Mainfunction.ExecuteQueue or (getgenv().AE and getgenv().AE.ExecuteQueue)
 	local function hookedExecuteQueue(...)
-		resetStatuses()
+		local Scripttable, Mainfunction = getAE()
+		if Scripttable then
+			resetStatuses()
+			task.spawn(function()
+				for i = 1, 10 do
+					if Scripttable.gameStartTime then
+						lastLocalGameStart = Scripttable.gameStartTime
+					end
+					task.wait(0.01)
+				end
+			end)
+		end
 		pcall(updateUIList)
 		return ExecuteQueue(...)
 	end
