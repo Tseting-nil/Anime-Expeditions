@@ -1962,6 +1962,10 @@ local function gateCost(op)
 		local U = require(ReplicatedStorage.Shared.Information.Units)
 		local u = U[op.unitName]
 		local e = u and u.UpgradeInfo and u.UpgradeInfo[op.target or 0]
+		if not e then
+			local uEvo = U[op.unitName .. "EVO"]
+			e = uEvo and uEvo.UpgradeInfo and uEvo.UpgradeInfo[op.target or 0]
+		end
 		return e and e.Cost or 0
 	end)
 	return (ok and cost) or 0
@@ -1997,6 +2001,8 @@ local function buildOperations()
 			target = 0, -- 放置 = 達到 0 等
 			mut = getMutLabel(info), -- " [Shiny]" / " [Shiny, Trait:X]" / ""
 			backfilled = info.Backfilled,
+			shiny = info.Shiny,
+			trait = info.Trait,
 		})
 	end
 
@@ -2019,6 +2025,15 @@ local function buildOperations()
 		if order then
 			table.insert(ops, { kind = "sell", order = order, elapsed = e.Elapsed or 0, seq = e.Seq or 0 })
 		end
+	end
+
+	for _, e in ipairs(skipWaveLog) do
+		table.insert(ops, {
+			kind = "skipwave",
+			elapsed = e.Elapsed or 0,
+			seq = e.Seq or 0,
+			title = e.Title,
+		})
 	end
 
 	table.sort(ops, function(a, b)
@@ -2117,12 +2132,19 @@ local function generateScript()
 	b("-- Lobby")
 	b("if AE.IsLobby() then")
 	b("\tAE.EquipLoadout({ " .. (function()
-		-- 依【資產名】去重, 但輸出【顯示名稱】(API 端會查表轉回資產名)
+		-- 依【資產名】去重, 但輸出【顯示名稱|特徵】(API 端會依此裝備正確特徵的塔)
 		local seen, q = {}, {}
 		for _, op in ipairs(ops) do
 			if op.kind == "place" and op.unitName and not seen[op.unitName] then
 				seen[op.unitName] = true
-				table.insert(q, string.format("%q", displayName(op.unitName)))
+				local item = displayName(op.unitName)
+				if op.trait and op.trait ~= "" then
+					item = item .. "|" .. op.trait
+				end
+				if op.shiny then
+					item = item .. "|Shiny"
+				end
+				table.insert(q, string.format("%q", item))
 			end
 		end
 		return table.concat(q, ", ")
@@ -2185,6 +2207,9 @@ local function generateScript()
 			))
 		elseif op.kind == "sell" then
 			b(string.format("\tAE.AddSellUnit(%d, %s)%s", op.order, gate, tail))
+		elseif op.kind == "skipwave" then
+			local titleArg = op.title and string.format("%q", op.title) or "nil"
+			b(string.format("\tAE.AddSkipWave(nil, %s) -- +%.1fs", titleArg, (op.elapsed or 0) / spd))
 		end
 	end
 
@@ -2588,8 +2613,14 @@ resetBtn.MouseButton1Click:Connect(function()
 	gameSettingLog = {}
 	gameStartAutoSkipWave = false
 	lastDetectedSpeed = 1
-	isGameRunning = false
-	gameStartSession = nil
+	local sessTime = getSessionTime and getSessionTime() or nil
+	if sessTime then
+		isGameRunning = true
+		gameStartSession = sessTime
+	else
+		isGameRunning = false
+		gameStartSession = nil
+	end
 	gameStartApprox = false
 	gameEndElapsed = nil
 	gameStartMapId = nil
@@ -2685,6 +2716,10 @@ local function fmtGate(elapsed, unitName, targetLevel)
 		local U = require(ReplicatedStorage.Shared.Information.Units)
 		local u = U[unitName]
 		local e = u and u.UpgradeInfo and u.UpgradeInfo[targetLevel or 0]
+		if not e then
+			local uEvo = U[unitName .. "EVO"]
+			e = uEvo and uEvo.UpgradeInfo and uEvo.UpgradeInfo[targetLevel or 0]
+		end
 		cost = e and e.Cost
 	end)
 	if cost then
@@ -2991,7 +3026,7 @@ local function aeIsClone(d)
 	--   (那會把所有塔都濾掉、追蹤器一個塔都顯示不出來)。IsClone 那條才是主判準。
 	local realAsset = d.UnitData and d.UnitData.Asset
 	local idAsset = aeAssetOf(d.UnitID)
-	if type(realAsset) == "string" and type(idAsset) == "string" and realAsset ~= idAsset then
+	if type(realAsset) == "string" and type(idAsset) == "string" and realAsset ~= idAsset and realAsset ~= idAsset .. "EVO" then
 		return true
 	end
 	return false
