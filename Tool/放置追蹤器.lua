@@ -2023,7 +2023,13 @@ local function buildOperations()
 	for _, e in ipairs(sellLog) do
 		local order = idToOrder[e.GameID]
 		if order then
-			table.insert(ops, { kind = "sell", order = order, elapsed = e.Elapsed or 0, seq = e.Seq or 0 })
+			table.insert(ops, {
+				kind = "sell",
+				order = order,
+				elapsed = e.Elapsed or 0,
+				seq = e.Seq or 0,
+				unitName = orderToInfo[order] and orderToInfo[order].UnitType,
+			})
 		end
 	end
 
@@ -2170,30 +2176,32 @@ local function generateScript()
 	b("\t-- Start")
 
 	for _, op in ipairs(ops) do
+		local uName = op.unitName and displayName(op.unitName) or ""
+		local nameTag = (uName ~= "") and (uName .. " ") or ""
+
 		-- 閘門: 成本版 = 消耗字串 (API 等 Yen 夠才動作); 時間版 = 開局後秒數
 		local gate, tail
 		if costMode then
 			local cost = gateCost(op)
 			gate = (op.kind == "sell" or op.kind == "sellall") and "0" or string.format("%q", tostring(cost))
-			tail = string.format(" -- #%d $%s", op.order or 0, tostring(cost))
+			tail = string.format(" -- #%d %s$%s", op.order or 0, nameTag, tostring(cost))
 		else
 			local t = (op.elapsed or 0) / spd
 			if timeRoundUp then
 				t = math.ceil(t)
 			end
 			gate = string.format("%.2f", t)
-			tail = string.format(" -- #%d +%.1fs", op.order or 0, t)
+			tail = string.format(" -- #%d %s+%.1fs", op.order or 0, nameTag, t)
 		end
 
 		if op.kind == "place" then
-			-- ★ 用【顯示名稱】(玩家看得懂); API 端 AddPlaceUnit 會查表轉回伺服器的資產名。
-			-- 閃亮/天賦是註記而非可控參數: 放置照快速欄槽位, 腳本無法在放置當下挑「哪一隻實例」。
+			local placeTail = costMode and string.format(" -- #%d $%s", op.order or 0, tostring(gateCost(op))) or string.format(" -- #%d +%.1fs", op.order or 0, (timeRoundUp and math.ceil((op.elapsed or 0) / spd) or ((op.elapsed or 0) / spd)))
 			b(string.format(
 				"\tAE.AddPlaceUnit(%q, %s, %s)%s%s%s",
 				displayName(op.unitName),
 				gate,
 				cfToArgs(op.cframe),
-				tail,
+				placeTail,
 				op.mut ~= "" and op.mut or "",
 				op.backfilled and " [backfill]" or ""
 			))
@@ -2982,7 +2990,8 @@ local function aeSpotKey(name, cf)
 		return nil
 	end
 	local p = cf.Position
-	return string.format("%s@%.1f,%.1f,%.1f", tostring(name), p.X, p.Y, p.Z)
+	-- 忽略 Y 軸：避免 GamePhantom (幽靈塔) 轉實體 GameUnit 時因地形/碰撞箱微調 (如 Y 軸差 0.5) 導致去重 Key 不相符而重複錄製
+	return string.format("%s@%.1f,%.1f", tostring(name), p.X, p.Z)
 end
 
 -- === 升級偵測 ===
