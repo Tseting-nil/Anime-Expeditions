@@ -114,6 +114,7 @@ local gameSettings = {
 local ScriptSettings = {
 	AutoReplay = true,
 	CostMode = true,
+	AutoSkipCheckpoint = true,
 }
 
 -- === 腳本生成設定 ===
@@ -182,6 +183,8 @@ local Lang = {
 		lblCostModeDesc = "開啟後生成腳本用消耗($)當閘門、錢夠才動作；對收入/難度差異更穩，適合掛機重播",
 		lblAutoSkipWaves = "自動跳過波次 (AutoSkipWaves)",
 		lblAutoSkipWavesDesc = "直接改遊戲設定（走 Nodes 層）。生成的腳本會在開頭帶上這個設定，重播時自動套用",
+		lblAutoSkipCheckpoint = "自動跳過檢查點 (SkipCheckpoint)",
+		lblAutoSkipCheckpointDesc = "遠征 (Expedition) 模式下，出現中間檢查點彈窗時自動點擊繼續並前進下一個節點",
 		logAutoSkipOn = "已啟用自動跳過波次",
 		logAutoSkipOff = "已停用自動跳過波次",
 		logAutoSkipRead = "讀取遊戲設定：自動跳波 = %s",
@@ -260,6 +263,8 @@ local Lang = {
 		lblCostModeDesc = "Generated script gates by cost ($) instead of time; robust to income/difficulty differences, ideal for AFK replay",
 		lblAutoSkipWaves = "Auto Skip Waves",
 		lblAutoSkipWavesDesc = "Changes the in-game setting directly (via the Nodes layer). The generated script applies it on start",
+		lblAutoSkipCheckpoint = "Auto Skip Checkpoint (SkipCheckpoint)",
+		lblAutoSkipCheckpointDesc = "In Expedition mode, automatically confirms and skips intermediate checkpoints to proceed to the next node",
 		logAutoSkipOn = "Auto Skip Waves enabled",
 		logAutoSkipOff = "Auto Skip Waves disabled",
 		logAutoSkipRead = "Read game setting: Auto Skip = %s",
@@ -1599,6 +1604,10 @@ autoSkipToggle = createToggle("lblAutoSkipWaves", paramScrollFrame, 17, autoSkip
 	end)
 end, "lblAutoSkipWavesDesc")
 
+createToggle("lblAutoSkipCheckpoint", paramScrollFrame, 18, ScriptSettings.AutoSkipCheckpoint, function(v)
+	ScriptSettings.AutoSkipCheckpoint = v
+end, "lblAutoSkipCheckpointDesc")
+
 -- ============================================================
 -- 拖移功能
 -- ============================================================
@@ -2170,6 +2179,9 @@ local function generateScript()
 	b("\tAE.DisplayEndRewards(false)")
 	if ScriptSettings.AutoReplay then
 		b("\tAE.AutoReplay(true)")
+	end
+	if ScriptSettings.AutoSkipCheckpoint or gameSettings.gamemode == "Expedition" then
+		b("\tAE.Skipcheckpoint(true)")
 	end
 	b(string.format("\tAE.AddSetSetting(%q, %s, 0)", "AutoSkipWaves", tostring(skipAtStart == true)))
 	b("\tAE.AddGameStart()")
