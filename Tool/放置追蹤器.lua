@@ -2646,6 +2646,7 @@ resetBtn.MouseButton1Click:Connect(function()
 	gameStartMapId = nil
 	mapTransitionLog = {}
 	readyHooked = false
+	gameStartedLogged = false
 
 	-- 重置能力面板
 	for model in pairs(abiTowerCards) do
@@ -2829,8 +2830,14 @@ function Tracker.OnSell(gameId)
 	)
 end
 
--- 玩家接受了 "Start Game?" 投票 -> 波次開始 (wave 0->1, GameTime 開始走)
+-- 玩家接受了 "Start Game?" 投票或遠征開始 -> 波次開始 (wave 0->1, GameTime 開始走)
+local gameStartedLogged = false
+
 function Tracker.OnGameStarted()
+	if gameStartedLogged then
+		return
+	end
+	gameStartedLogged = true
 	addLog(T("logGameStarted"), Theme.Success)
 end
 
@@ -2850,8 +2857,9 @@ end
 function Tracker.OnGameStart(mapId)
 	startGameTimer(mapId)
 	updateInfoLabel()
-	-- ★ 準備階段的「遊戲開始」不顯示 (只默默啟動計時器);
-	--   真正對玩家有意義的「開始」由 OnGameStarted (接受 Start Game? 投票) 記一次即可。
+	if not gameStartedLogged then
+		Tracker.OnGameStarted()
+	end
 end
 
 function Tracker.OnGameEnd()
