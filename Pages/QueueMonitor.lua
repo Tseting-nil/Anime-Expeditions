@@ -896,6 +896,21 @@ local function hookMainfunctions()
 		end
 	end
 
+	local RawGameStart = Mainfunction.GameStart
+	if RawGameStart then
+		Mainfunction.GameStart = function(...)
+			local success = RawGameStart(...)
+			local Scripttable, Mainfunction = getAE()
+			local op = Scripttable.queue[current_index]
+			if op and (op.kind == "vote" or op.kind == "gamestart" or op.type == "startgame") then
+				op.status = success and "completed" or "failed"
+				moveToNextOp()
+				scrollToActiveOp()
+			end
+			return success
+		end
+	end
+
 	local RawSetSetting = Mainfunction.SetSetting
 	if RawSetSetting then
 		Mainfunction.SetSetting = function(...)

@@ -2196,7 +2196,9 @@ local function generateScript()
 		b("\tAE.Skipcheckpoint(true)")
 	end
 	b(string.format("\tAE.AddSetSetting(%q, %s, 0)", "AutoSkipWaves", tostring(skipAtStart == true)))
+	local gameStartWritten = false
 	if not hasGameStartOp then
+		gameStartWritten = true
 		b("\tAE.AddGameStart()")
 	end
 	b("\t-- Start")
@@ -2221,12 +2223,15 @@ local function generateScript()
 		end
 
 		if op.kind == "gamestart" then
-			b("\tAE.AddGameStart()")
+			if not gameStartWritten then
+				gameStartWritten = true
+				b("\tAE.AddGameStart()")
+			end
 		elseif op.kind == "place" then
 			local placeTail = costMode and string.format(" -- #%d $%s", op.order or 0, tostring(gateCost(op))) or string.format(" -- #%d +%.1fs", op.order or 0, (timeRoundUp and math.ceil((op.elapsed or 0) / spd) or ((op.elapsed or 0) / spd)))
 			b(string.format(
 				"\tAE.AddPlaceUnit(%q, %s, %s)%s%s%s",
-				displayName(op.unitName),
+				tostring(op.unitName),
 				gate,
 				cfToArgs(op.cframe),
 				placeTail,
@@ -3330,14 +3335,23 @@ function Adapter.Init()
 		if playerGui then
 			local function hookBottomHud(hud)
 				for _, desc in ipairs(hud:GetDescendants()) do
-					if desc:IsA("GuiButton") or desc:IsA("TextButton") or desc:IsA("ImageButton") then
-						desc.MouseButton1Click:Connect(function()
-							queueHookTask(function()
-								if not gameStartedLogged then
-									Tracker.OnGameStarted()
-								end
-							end)
-						end)
+					if desc:IsA("TextLabel") or desc:IsA("TextBox") then
+						local txt = tostring(desc.Text or "")
+						if txt == "Continue" or txt == "繼續" or txt:find("Continue") or txt:find("繼續") then
+							local btn = desc.Parent
+							while btn and btn ~= hud and not (btn:IsA("GuiButton") or btn:IsA("TextButton") or btn:IsA("ImageButton") or btn.Name:find("Button")) do
+								btn = btn.Parent
+							end
+							if btn and (btn:IsA("GuiButton") or btn:IsA("TextButton") or btn:IsA("ImageButton") or btn.Name:find("Button")) then
+								btn.MouseButton1Click:Connect(function()
+									queueHookTask(function()
+										if not gameStartedLogged then
+											Tracker.OnGameStarted()
+										end
+									end)
+								end)
+							end
+						end
 					end
 				end
 			end
