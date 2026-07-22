@@ -1995,6 +1995,8 @@ local function cfToArgs(cf)
 end
 
 -- 把三個 log 合併成一條依時間排序的操作序列
+local gameStartLog = {}
+
 local function buildOperations()
 	local ops = {}
 
@@ -2051,10 +2053,20 @@ local function buildOperations()
 		})
 	end
 
+	local hasGameStartOp = false
+	for _, e in ipairs(gameStartLog or {}) do
+		hasGameStartOp = true
+		table.insert(ops, {
+			kind = "gamestart",
+			elapsed = e.Elapsed or 0,
+			seq = e.Seq or 0,
+		})
+	end
+
 	table.sort(ops, function(a, b)
 		return a.seq < b.seq
 	end)
-	return ops
+	return ops, hasGameStartOp
 end
 
 local function fmtDuration(sec)
@@ -2184,7 +2196,9 @@ local function generateScript()
 		b("\tAE.Skipcheckpoint(true)")
 	end
 	b(string.format("\tAE.AddSetSetting(%q, %s, 0)", "AutoSkipWaves", tostring(skipAtStart == true)))
-	b("\tAE.AddGameStart()")
+	if not hasGameStartOp then
+		b("\tAE.AddGameStart()")
+	end
 	b("\t-- Start")
 
 	for _, op in ipairs(ops) do
@@ -2206,7 +2220,9 @@ local function generateScript()
 			tail = string.format(" -- #%d %s+%.1fs", op.order or 0, nameTag, t)
 		end
 
-		if op.kind == "place" then
+		if op.kind == "gamestart" then
+			b("\tAE.AddGameStart()")
+		elseif op.kind == "place" then
 			local placeTail = costMode and string.format(" -- #%d $%s", op.order or 0, tostring(gateCost(op))) or string.format(" -- #%d +%.1fs", op.order or 0, (timeRoundUp and math.ceil((op.elapsed or 0) / spd) or ((op.elapsed or 0) / spd)))
 			b(string.format(
 				"\tAE.AddPlaceUnit(%q, %s, %s)%s%s%s",
@@ -2631,6 +2647,7 @@ resetBtn.MouseButton1Click:Connect(function()
 	speedChangeLog = {}
 	abilityLog = {}
 	gameSettingLog = {}
+	gameStartLog = {}
 	gameStartAutoSkipWave = false
 	lastDetectedSpeed = 1
 	local sessTime = getSessionTime and getSessionTime() or nil
@@ -2838,6 +2855,8 @@ function Tracker.OnGameStarted()
 		return
 	end
 	gameStartedLogged = true
+	local elapsed = getElapsed()
+	table.insert(gameStartLog, { Elapsed = elapsed, Seq = nextSeq() })
 	addLog(T("logGameStarted"), Theme.Success)
 end
 
@@ -2857,9 +2876,7 @@ end
 function Tracker.OnGameStart(mapId)
 	startGameTimer(mapId)
 	updateInfoLabel()
-	if not gameStartedLogged then
-		Tracker.OnGameStarted()
-	end
+	-- ★ 準備階段默默啟動計時器；「開始」日誌在玩家點擊開場按鈕/第一隻放置/投票時紀錄
 end
 
 function Tracker.OnGameEnd()
@@ -3307,7 +3324,34 @@ function Adapter.Init()
 		end)
 	end)
 
-	-- 6) 補記已經在場上的塔 (腳本中途載入)
+	-- 6) 遠征開場 / Checkpoint 點擊 Continue 按鈕時觸發「開始」日誌
+	pcall(function()
+		local playerGui = LocalPlayer and LocalPlayer:FindFirstChild("PlayerGui")
+		if playerGui then
+			local function hookBottomHud(hud)
+				for _, desc in ipairs(hud:GetDescendants()) do
+					if desc:IsA("GuiButton") or desc:IsA("TextButton") or desc:IsA("ImageButton") then
+						desc.MouseButton1Click:Connect(function()
+							queueHookTask(function()
+								if not gameStartedLogged then
+									Tracker.OnGameStarted()
+								end
+							end)
+						end)
+					end
+				end
+			end
+			local bh = playerGui:FindFirstChild("BottomHUD")
+			if bh then hookBottomHud(bh) end
+			playerGui.ChildAdded:Connect(function(child)
+				if child.Name == "BottomHUD" then
+					hookBottomHud(child)
+				end
+			end)
+		end
+	end)
+
+	-- 7) 補記已經在場上的塔 (腳本中途載入)
 	--   靠塔的 Data.PlacedAt (= 放置當下的 SessionTime) 還原真實順序與時間。
 	--   先依 PlacedAt 排序再補記 -- pairs() 掃 replica 是無序的, 不排就會得到隨機順序。
 	pcall(function()
@@ -3407,13 +3451,10 @@ addLog(
 	Theme.Accent
 )
 addLog(string.format(T("logAutoSkipRead"), autoSkipState.on and "ON" or "OFF"), Theme.Accent)
+addLog(T("logWaitStart"), Theme.TextDim)
 
--- Adapter 要在「等待遊戲開始」之前掛好: 它會補記場上既有的塔, 那些日誌該排在等待訊息之前
 pcall(Adapter.Init)
 updateInfoLabel()
-
-addLog(T("logWaitStart"), Theme.TextDim)
-pcall(Adapter.Init)
 
 -- ============================================================
 -- Heartbeat: 能力冷卻條更新
