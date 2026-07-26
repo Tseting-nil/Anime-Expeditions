@@ -921,6 +921,36 @@ local function hookMainfunctions()
 		end
 	end
 
+	local RawStartgameUI = Mainfunction.Startgame_UI
+	if RawStartgameUI then
+		Mainfunction.Startgame_UI = function(...)
+			local success = RawStartgameUI(...)
+			local Scripttable, Mainfunction = getAE()
+			local op = Scripttable.queue[current_index]
+			if op and (op.kind == "gamestart" or op.kind == "vote" or op.type == "startgame") then
+				op.status = success ~= false and "completed" or "failed"
+				moveToNextOp()
+				scrollToActiveOp()
+			end
+			return success
+		end
+	end
+
+	local RawCheckpointUI = Mainfunction.Checkpoint_UI
+	if RawCheckpointUI then
+		Mainfunction.Checkpoint_UI = function(...)
+			local success = RawCheckpointUI(...)
+			local Scripttable, Mainfunction = getAE()
+			local op = Scripttable.queue[current_index]
+			if op and (op.kind == "gamestart2" or op.type == "checkpoint") then
+				op.status = success ~= false and "completed" or "failed"
+				moveToNextOp()
+				scrollToActiveOp()
+			end
+			return success
+		end
+	end
+
 	local RawSetSetting = Mainfunction.SetSetting
 	if RawSetSetting then
 		Mainfunction.SetSetting = function(...)
