@@ -45,16 +45,16 @@ local i18n = {
 		default_tower = "塔 #%d",
 		unknown_tower = "未知塔",
 		title = "動漫遠征 | 佇列監視器",
-		progress_wait = "進度：等待佇列啟動...",
+		progress_wait = "進度 [0/0] (0.0%) | 0.0s | $0",
 		op_place = "放置 %s (#%d)",
 		op_upgrade = "升級 %s (#%d)",
 		op_sell = "售出 %s (#%d)",
 		op_ability = "塔能力 %s (#%d)",
 		op_sellall = "清除全部塔",
 		op_skipwave = "手動跳波",
-		op_autoskip_on = "設定自動跳波：開",
-		op_autoskip_off = "設定自動跳波：關",
-		op_speed = "設定速度：%dx",
+		op_autoskip_on = "設定自動跳波：開啟",
+		op_autoskip_off = "設定自動跳波：關閉",
+		op_speed = "設定加速：%dx",
 		op_autoupgrade = "自動升級 %s (#%d)",
 		op_end = "結束標記",
 		op_setting = "設定 %s = %s",
@@ -68,9 +68,9 @@ local i18n = {
 		game_victory = "已結束 (勝利)",
 		game_defeat = "已結束 (失敗)",
 		game_unknown = "已結束 (未知)",
-		time_countdown = "倒數：%.1fs",
-		time_elapsed = "時間：%.1fs",
-		summary_format = "進度：%d/%d (%.1f%%) | %s | 金錢：$%s",
+		time_countdown = "%.1fs",
+		time_elapsed = "%.1fs",
+		summary_format = "進度 [%d/%d] (%.1f%%) | %s | $%s",
 		queue_empty = "佇列為空，請載入腳本...",
 		log_new_game = "[AE Monitor] 🔄 偵測到新對局開始 (GameStartTime 改變)，重置佇列狀態！",
 		log_game_ended = "[AE Monitor] ℹ️ 對局結束或回到大廳，重置佇列狀態",
@@ -81,7 +81,7 @@ local i18n = {
 		default_tower = "Tower #%d",
 		unknown_tower = "Unknown Tower",
 		title = "Anime-Expeditions | Queue Monitor",
-		progress_wait = "Progress: Waiting for queue...",
+		progress_wait = "Progress [0/0] (0.0%) | 0.0s | $0",
 		op_place = "Place %s (#%d)",
 		op_upgrade = "Upgrade %s (#%d)",
 		op_sell = "Sell %s (#%d)",
@@ -104,9 +104,9 @@ local i18n = {
 		game_victory = "Finished (Victory)",
 		game_defeat = "Finished (Defeat)",
 		game_unknown = "Finished (Unknown)",
-		time_countdown = "Countdown: %.1fs",
-		time_elapsed = "Time: %.1fs",
-		summary_format = "Progress: %d/%d (%.1f%%) | %s | Cash: $%s",
+		time_countdown = "%.1fs",
+		time_elapsed = "%.1fs",
+		summary_format = "Progress [%d/%d] (%.1f%%) | %s | $%s",
 		queue_empty = "Queue is empty, please load script...",
 		log_new_game = "[AE Monitor] 🔄 New game detected (GameStartTime changed), resetting queue status!",
 		log_game_ended = "[AE Monitor] ℹ️ Game ended or back to lobby, resetting queue status",
@@ -195,7 +195,8 @@ local function displayName(asset)
 end
 
 local function formatNumber(amount)
-	local formatted = tostring(amount)
+	local num = math.floor((tonumber(amount) or 0) + 0.5)
+	local formatted = tostring(num)
 	while true do
 		local k
 		formatted, k = string.gsub(formatted, "^(-?%d+)(%d%d%d)", '%1,%2')
@@ -207,9 +208,9 @@ end
 local function readCash()
 	local AE = getgenv().AE
 	if AE and AE.GetYen then
-		return AE.GetYen() or 0
+		local ok, yen = pcall(AE.GetYen)
+		if ok and yen then return yen end
 	end
-	-- Fallback
 	local ok, val = pcall(function()
 		local ReplicaClient = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("ReplicaClient"))
 		local reps = ReplicaClient.Test().Replicas
@@ -227,11 +228,9 @@ local function getElapsed()
 	local AE = getgenv().AE
 	if AE and AE.__loaded then
 		local ok, el = pcall(function() return AE.GetQueueElapsed() end)
-		if ok and el then return el end
-	end
-	local gst = workspace:GetAttribute("GameStartTime")
-	if type(gst) == "number" and gst > 0 then
-		return workspace:GetServerTimeNow() - gst
+		if ok then
+			return el or 0
+		end
 	end
 	return 0
 end
@@ -267,17 +266,12 @@ end
 local function resetStatuses()
 	local Scripttable, Mainfunction = getAE()
 	current_index = 1
-	for _, op in ipairs(Scripttable.queue or {}) do
+	local queue = Scripttable.queue or {}
+	for _, op in ipairs(queue) do
 		op.status = "pending"
 	end
-	
-	for _, op in ipairs(Scripttable.queue or {}) do
-		if op.kind == "autoupgrade" or op.type == "autoupgrade" then
-			op.status = "running"
-		end
-	end
 
-	for idx, op in ipairs(Scripttable.queue or {}) do
+	for idx, op in ipairs(queue) do
 		if op.kind ~= "autoupgrade" and op.type ~= "autoupgrade" then
 			op.status = "running"
 			current_index = idx
@@ -646,6 +640,7 @@ local function initUIList()
 		gateLbl.Font = Theme.Font
 		gateLbl.TextSize = 11
 		gateLbl.TextXAlignment = Enum.TextXAlignment.Right
+		gateLbl.Text = ""
 		gateLbl.Parent = rowFrame
 		gateLbl.Name = "Gate"
 
