@@ -69,6 +69,7 @@ local i18n = {
 		banner_standard = "標準 (Standard)",
 		banner_mini = "小型 (Mini)",
 		banner_newplayer = "新手活動 (NewPlayerEvent)",
+		banner_villain = "反派入侵 (VillainInvasion)",
 		label_summon_tier = "抽取檔位",
 		sep_game_settings = "遊戲設定 (會同步到伺服器)",
 		cb_fast_summon = "快速抽取 (跳過全螢幕彈窗)",
@@ -178,6 +179,7 @@ local i18n = {
 		banner_standard = "Standard",
 		banner_mini = "Mini",
 		banner_newplayer = "NewPlayerEvent",
+		banner_villain = "VillainInvasion",
 		label_summon_tier = "Summon Tier",
 		sep_game_settings = "Game Settings (Syncs to Server)",
 		cb_fast_summon = "Fast Summon (Skip full screen popups)",
@@ -385,16 +387,81 @@ local TotalSummons = 0
 local TotalSpent = 0
 
 -- Banner 選項
-local BannerOptions = {
-	L("banner_standard"),
-	L("banner_mini"),
-	L("banner_newplayer")
+local KnownBannerTitles = {
+	Standard = "banner_standard",
+	Mini = "banner_mini",
+	NewPlayerEvent = "banner_newplayer",
+	VillainInvasion = "banner_villain",
 }
-local BannerIdOf = {
-	[L("banner_standard")] = "Standard",
-	[L("banner_mini")] = "Mini",
-	[L("banner_newplayer")] = "NewPlayerEvent",
-}
+
+local function GetAllBannerIds()
+	local ids = { "Standard", "Mini", "NewPlayerEvent", "VillainInvasion" }
+	local seen = {}
+	for _, id in ipairs(ids) do
+		seen[id] = true
+	end
+
+	pcall(function()
+		local bd = peek(Dependencies.BannerData) or {}
+		for bannerId in pairs(bd) do
+			if not seen[bannerId] then
+				seen[bannerId] = true
+				table.insert(ids, bannerId)
+			end
+		end
+	end)
+
+	pcall(function()
+		local binfo = BannerInfo and BannerInfo.Banners or {}
+		for bannerId in pairs(binfo) do
+			if not seen[bannerId] then
+				seen[bannerId] = true
+				table.insert(ids, bannerId)
+			end
+		end
+	end)
+
+	return ids
+end
+
+local function GetBannerDisplayName(bannerId)
+	local key = KnownBannerTitles[bannerId]
+	if key then
+		return L(key)
+	end
+	local stylingName
+	pcall(function()
+		local bd = peek(Dependencies.BannerData) or {}
+		local b = bd[bannerId]
+		stylingName = b and b.BannerInfo and b.BannerInfo.Styling and b.BannerInfo.Styling.Name
+	end)
+	if not stylingName then
+		pcall(function()
+			local b = (BannerInfo.Banners or {})[bannerId]
+			stylingName = b and b.Styling and b.Styling.Name
+		end)
+	end
+	if stylingName and stylingName ~= "" then
+		return string.format("%s (%s)", stylingName, bannerId)
+	end
+	return bannerId
+end
+
+local BannerOptions = {}
+local BannerIdOf = {}
+
+local function RefreshBannerOptions()
+	local currentIds = GetAllBannerIds()
+	table.clear(BannerOptions)
+	table.clear(BannerIdOf)
+	for _, id in ipairs(currentIds) do
+		local disp = GetBannerDisplayName(id)
+		table.insert(BannerOptions, disp)
+		BannerIdOf[disp] = id
+	end
+end
+
+RefreshBannerOptions()
 
 -- 目前的 banner 折扣 (session boost)
 local function GetBannerDiscount()
@@ -1474,6 +1541,7 @@ end)
 -- 狀態更新與保底同步
 task.spawn(function()
 	while Running do
+		pcall(RefreshBannerOptions)
 		pcall(function()
 			local meta = GetBannerMeta(SelectedBanner)
 			local priceText = meta.Discounted and L("label_cost_format", meta.Cost, meta.BaseCost, math.round(GetBannerDiscount() * 100)) or tostring(meta.Cost)
