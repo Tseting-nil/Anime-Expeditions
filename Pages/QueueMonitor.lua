@@ -43,6 +43,7 @@ local i18n = {
 	zh = {
 		warn_no_api = "[AE Monitor] ❌ 找不到 AE API，無法啟動監視器！",
 		default_tower = "塔 #%d",
+		unknown_tower = "未知塔",
 		title = "動漫遠征 | 佇列監視器",
 		progress_wait = "進度：等待佇列啟動...",
 		op_place = "放置 %s (#%d)",
@@ -58,6 +59,8 @@ local i18n = {
 		op_end = "結束標記",
 		op_setting = "設定 %s = %s",
 		op_startgame = "投票：開始遊戲",
+		op_gamestart = "開場 UI 觸發 (StartGame)",
+		op_gamestart2 = "檢查點 UI 觸發 (Checkpoint Continue)",
 		op_vote = "投票：%s",
 		gate_completed = "已完成",
 		gate_failed = "失敗",
@@ -76,6 +79,7 @@ local i18n = {
 	en = {
 		warn_no_api = "[AE Monitor] ❌ Cannot find AE API, failed to start monitor!",
 		default_tower = "Tower #%d",
+		unknown_tower = "Unknown Tower",
 		title = "Anime-Expeditions | Queue Monitor",
 		progress_wait = "Progress: Waiting for queue...",
 		op_place = "Place %s (#%d)",
@@ -91,6 +95,8 @@ local i18n = {
 		op_end = "End Marker",
 		op_setting = "Set Setting %s = %s",
 		op_startgame = "Vote: Start Game",
+		op_gamestart = "Start Game Trigger (StartGame)",
+		op_gamestart2 = "Checkpoint Trigger (Checkpoint Continue)",
 		op_vote = "Vote: %s",
 		gate_completed = "Completed",
 		gate_failed = "Failed",
@@ -232,7 +238,7 @@ end
 
 -- 依 order 尋找對應放置塔的顯示名稱
 local function getTowerNameForOrder(order)
-	if not order then return "Unknown" end
+	if not order then return L.unknown_tower end
 	local Scripttable, Mainfunction = getAE()
 	for _, item in ipairs(Scripttable.queue or {}) do
 		if (item.kind == "place" or item.type == "place") and item.order == order then
@@ -617,7 +623,11 @@ local function initUIList()
 		elseif opKind == "end" then
 			detailStr = L.op_end
 		elseif opKind == "setting" then
-			detailStr = string.format(L.op_setting, tostring(op.name), tostring(op.value))
+			detailStr = string.format(L.op_setting, tostring(op.settingName or op.key or op.name or ""), tostring(op.value))
+		elseif opKind == "gamestart" then
+			detailStr = L.op_gamestart
+		elseif opKind == "gamestart2" then
+			detailStr = L.op_gamestart2
 		elseif opKind == "vote" then
 			if op.titleMatch == "Start Game?" then
 				detailStr = L.op_startgame
