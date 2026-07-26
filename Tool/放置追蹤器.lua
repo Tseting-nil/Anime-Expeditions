@@ -25,6 +25,7 @@ local Gametable = {
 	mapTransitionLog = {},
 	readyHooked = false,
 	hookTaskQueue = {},
+	lastDetectedSpeed = 1,
 }
 
 Gametable.isMobile = Gametable.UserInputService.TouchEnabled and not Gametable.UserInputService.KeyboardEnabled
@@ -3531,7 +3532,8 @@ Scripttable.abiUpdateTimer = 0
 
 Gametable.RunService.Heartbeat:Connect(function(dt)
 	Mainfunction.flushHookTaskQueue()
-	Scripttable.abiGameClock = Scripttable.abiGameClock + dt * (Gametable.lastDetectedSpeed > 0 and Gametable.lastDetectedSpeed or 1)
+	local spd = (typeof(Gametable.lastDetectedSpeed) == "number" and Gametable.lastDetectedSpeed > 0) and Gametable.lastDetectedSpeed or 1
+	Scripttable.abiGameClock = Scripttable.abiGameClock + dt * spd
 
 	Scripttable.abiUpdateTimer = Scripttable.abiUpdateTimer + dt
 	if Scripttable.abiUpdateTimer < 0.1 then
@@ -3554,7 +3556,7 @@ Gametable.RunService.Heartbeat:Connect(function(dt)
 					local elapsed = Scripttable.abiGameClock - t0
 					local remaining = math.max(0, w.cd - elapsed)
 					local fillPct = math.min(elapsed / w.cd, 1)
-					local dispRemaining = remaining / (Gametable.lastDetectedSpeed > 0 and Gametable.lastDetectedSpeed or 1)
+					local dispRemaining = remaining / spd
 
 					w.barFill.Size = UDim2.new(fillPct, 0, 1, 0)
 					w.barFill.BackgroundColor3 = remaining > 0 and Scripttable.Theme.Accent or Scripttable.Theme.Success
