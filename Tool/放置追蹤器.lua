@@ -2171,10 +2171,15 @@ Mainfunction.generateScript = function()
 		local nameTag = (uName ~= "") and (uName .. " ") or ""
 
 		-- 閘門: 成本版 = 消耗字串 (API 等 Yen 夠才動作); 時間版 = 開局後秒數
+		-- ★ 開局前 (gameStartWritten == false) 的放置一律用 "0" 閘門預放，避免金錢不足卡死 AddGameStart()
 		local gate, tail
 		if costMode then
 			local cost = Mainfunction.gateCost(op)
-			gate = (op.kind == "sell" or op.kind == "sellall") and "0" or string.format("%q", tostring(cost))
+			if (not gameStartWritten and op.kind == "place") or op.kind == "sell" or op.kind == "sellall" then
+				gate = "0"
+			else
+				gate = string.format("%q", tostring(cost))
+			end
 			tail = string.format(" -- #%d %s$%s", op.order or 0, nameTag, tostring(cost))
 		else
 			local t = (op.elapsed or 0) / spd
